@@ -1,217 +1,178 @@
-🧠 MINI CRM – Backend (Node.js, MongoDB, Google OAuth, Campaign Engine)
+# miniCRM
 
-A lightweight CRM system built with Node.js, Express, MongoDB, and Google OAuth 2.0.
-Supports customer management, order tracking, campaign creation, rule-based audience filtering, AI-ready messaging architecture, and a vendor simulation pipeline for delivery tracking.
+A small React + Express + MongoDB CRM demo with Google OAuth sign-in, campaign batch-sends, and delivery receipts.
 
-🚀 Features
-1. Customer & Order Management
+---
 
-Add customers
+## Overview
 
-Track orders
+- Backend: Express, Passport (Google OAuth), MongoDB (Mongoose)
+- Frontend: React (Vite), React Router, Axios
+- Auth: Google OAuth using `passport-google-oauth20` with server-side sessions
+- Intended for demo / small internal use. Not hardened for production by default.
 
-MongoDB collections:
+---
 
-customer1
+## Features
 
-orders1
+- Google sign-in (server-side, sessions)
+- CRUD for customers, orders, campaigns
+- Campaign auto-tagging (basic heuristics + optional OpenAI)
+- Simulated vendor that posts delivery receipts to backend
 
-2. Campaign Management
+---
 
-Create marketing campaigns
+## Repo layout
 
-Apply rule-based audience filtering
+- `Backend/` — Express server, routes, models, passport config
+- `Frontend/` — Vite + React app
 
-Supported rules:
+---
 
-min_spend
+## Prerequisites
 
-inactive_days
+- Node.js 18+ (recommended)
+- npm
+- A MongoDB connection string (Atlas or self-hosted)
+- Google OAuth 2.0 credentials (Client ID & Secret)
 
-Only customers matching the rules receive campaign messages
+---
 
-3. Communication Log Engine
+## Local development (quickstart)
 
-For every campaign:
+1. Backend
 
-One log per matched customer
+- Copy environment variables into `Backend/.env` (or use `Backend/.env.development`):
 
-Stores:
+```
+PORT=5000
+MONGO_URI=your_mongo_uri
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+SESSION_SECRET=some_long_secret
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:5000
+GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
+VENDOR_SECRET=some_vendor_secret
+```
 
-campaign_id
+- Install and run backend:
 
-customer_id
-
-personalized message
-
-status (PENDING, SENT, FAILED)
-
-vendor message ID
-
-MongoDB collection:
-
-communication_logs1
-
-4. Vendor Delivery Simulation
-
-A fake vendor API simulates message delivery:
-
-90% chance → SENT
-
-10% chance → FAILED
-
-Vendor calls back a delivery receipt endpoint
-
-Communication logs are updated accordingly
-
-5. Google OAuth 2.0 Authentication
-
-Implemented using:
-
-Passport.js
-
-Google OAuth Strategy
-
-express-session
-
-Flow:
-
-/auth/google → redirect to Google
-
-/auth/google/callback → Google returns user
-
-Session is created
-
-Protected routes require login
-
-Protected areas:
-
-Campaign creation
-
-Campaign logs
-
-🛠 Tech Stack
-
-Backend: Node.js, Express
-Database: MongoDB Atlas
-Auth: Google OAuth 2.0 (Passport.js)
-Vendor Simulation: Custom Express Route
-AI-ready: OpenAI API integration supported (optional)
-
-📦 Installation
-1. Clone the project
-git clone <repo-url>
+```powershell
 cd Backend
-
-2. Install dependencies
 npm install
+npm run dev   # uses nodemon (or `npm start`)
+```
 
-3. Create .env file
-MONGO_URI=your-mongodb-uri
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-secret
-SESSION_SECRET=mini-crm-secret
-FRONTEND_URL=http://localhost:3000
+2. Frontend
 
-▶️ Run the Server
+- Set `Frontend/.env` (or export env var) with API base URL:
+
+```
+VITE_API_URL=http://localhost:5000
+```
+
+- Install and run frontend:
+
+```powershell
+cd Frontend
+npm install
 npm run dev
+```
 
+Open `http://localhost:5173` in your browser.
 
-Backend runs at:
+---
 
-http://localhost:5000
+## Environment variables (summary)
 
-🔐 Authentication Routes
-Method	Endpoint	Description
-GET	/auth/google	Start Google Login
-GET	/auth/google/callback	Google OAuth Callback
-GET	/auth/me	Get logged-in user
-GET	/auth/logout	Logout
-📁 API Endpoints
-Customers
-Method	Endpoint	Description
-POST	/customers	Add customer
-GET	/customers	Get all customers
-Orders
-Method	Endpoint	Description
-POST	/orders	Add order
-GET	/orders	Get all orders
-Campaigns (Requires Login)
-Method	Endpoint	Description
-POST	/api/campaigns	Create campaign + generate logs
-GET	/api/campaigns	List campaigns
-GET	/api/campaigns/:id/logs	Get logs for a campaign
-Vendor Simulation
-Method	Endpoint	Description
-POST	/api/vendor/send	Vendor receives request to send message
-Delivery Receipts
-Method	Endpoint	Description
-POST	/api/receipts/delivery	Vendor updates message status
-🎯 How Campaign Delivery Works
+Backend (important vars):
+- `PORT` — default `5000`
+- `MONGO_URI` — MongoDB connection string
+- `GOOGLE_CLIENT_ID` — Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` — Google OAuth client secret
+- `GOOGLE_CALLBACK_URL` — e.g. `http://localhost:5000/auth/google/callback` (must match Google console)
+- `FRONTEND_URL` — frontend origin (used for redirects and CORS)
+- `SESSION_SECRET` — session cookie secret
+- `VENDOR_SECRET` — HMAC secret used by vendor simulation
 
-User creates campaign
+Frontend:
+- `VITE_API_URL` — e.g. `http://localhost:5000` or your production backend URL
 
-System filters customers based on rules
+Note: For production, set `NODE_ENV=production` and ensure `GOOGLE_CALLBACK_URL` is the full HTTPS backend callback.
 
-Creates communication logs (PENDING)
+---
 
-Sends each log to vendor API
+## Google OAuth setup
 
-Vendor randomly marks as SENT or FAILED
+1. In Google Cloud Console, create OAuth 2.0 credentials.
+2. Under **Authorized JavaScript origins** add your frontend origin(s), e.g. `https://your-site.vercel.app` and `http://localhost:5173`.
+3. Under **Authorized redirect URIs** add your backend callback(s), e.g. `https://backend-jdl7.onrender.com/auth/google/callback` and `http://localhost:5000/auth/google/callback`.
+4. Use the client ID and client secret in your backend env.
 
-Vendor calls receipt endpoint
+Important: the redirect URI set in the Google console must exactly match `GOOGLE_CALLBACK_URL` used by `passport` in `Backend/config/passport.js`.
 
-Communication log is updated
+---
 
-🤖 Optional: OpenAI Integration (AI Messages)
+## Production notes (Render / Vercel)
 
-The project supports adding ChatGPT for:
+- Backend (Render or similar):
+  - Set `NODE_ENV=production`.
+  - Set `FRONTEND_URL` to your Vercel frontend URL (e.g. `https://your-site.vercel.app`).
+  - Set `BACKEND_URL` to your backend URL (e.g. `https://backend-jdl7.onrender.com`).
+  - Set `GOOGLE_CALLBACK_URL` to `${BACKEND_URL}/auth/google/callback` and register that exact value in Google console.
+  - Ensure `SESSION_SECRET`, `MONGO_URI`, `VENDOR_SECRET`, and `GOOGLE_*` variables are set.
 
-Personalized campaign messages
+- Frontend (Vercel):
+  - Set `VITE_API_URL` to your backend URL (e.g. `https://backend-jdl7.onrender.com`).
+  - Build and deploy normally.
 
-Customer summaries
+- Cookie / Session cross-domain requirements:
+  - If frontend and backend are on different top-level domains in production, session cookies must be served with `SameSite=None` and `Secure=true`.
+  - The backend should be run behind HTTPS and `app.set('trust proxy', 1)` or the equivalent in your hosting environment if using a proxy.
 
-AI-powered dashboards
+---
 
-A utility function can use OpenAI’s API to generate messages dynamically.
+## Troubleshooting
 
-📌 Folder Structure
-Backend/
-│── config/
-│   └── passport.js
-│── routes/
-│   ├── customerRoutes.js
-│   ├── orderRoutes.js
-│   ├── campaignRoutes.js
-│   ├── vendor.js
-│   ├── receipts.js
-│   └── auth.js
-│── models/
-│   ├── Customer.js
-│   ├── Order.js
-│   ├── Campaign.js
-│   └── CommunicationLog.js
-│── utils/
-│   └── ai.js (optional)
-│── middleware/
-│   └── isAuthenticated.js
-│── server.js
-└── .env
+- Redirect to `/dashboard` on unknown route: see `Frontend/src/App.jsx` — the route `path="*"` currently redirects to `/dashboard`. If you prefer a login fallback, change to redirect to `/login`.
 
-💡 Future Enhancements
+- Google OAuth works locally but not in production: common causes
+  - `GOOGLE_CALLBACK_URL` used by your backend does not match the redirect URI registered with Google.
+  - CORS or origin mismatch: add both frontend and backend origins to allowed origins and to Google console.
+  - Session cookie not set in the browser because `SameSite` or `Secure` is incorrect for cross-site usage — in production `SameSite=None` and `Secure=true` are required when frontend and backend are on different domains.
+  - `NODE_ENV` not set to `production` and proxy/trust settings missing behind a reverse proxy — enable `proxy: true` or `app.set('trust proxy', 1)` as needed.
 
-Add React frontend
+- If you see `401` from `/auth/me`: verify the browser is sending cookies (`withCredentials: true` is set in the frontend axios client) and that backend CORS allows `credentials` from your frontend origin.
 
-Add more audience filtering rules:
+---
 
-max_spend
+## Useful commands
 
-recent_signup
+Frontend:
+```powershell
+cd Frontend
+npm install
+npm run dev
+```
 
-email domain
+Backend:
+```powershell
+cd Backend
+npm install
+npm run dev
+```
 
-Implement AI-powered campaign generation
+---
 
-Add analytics dashboard
+## Security & next steps
 
-Add role-based access (admin / staff)
+- Rotate secrets before public deployment (do NOT check real secrets into git).
+- Use HTTPS in production and set `secure: true` for cookies.
+- Consider storing sessions in a persistent store (Redis) for multi-instance deployments.
+
+---
+
+## License
+
+MIT-style license — feel free to adapt.
